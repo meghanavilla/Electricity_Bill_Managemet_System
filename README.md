@@ -1,1 +1,2 @@
 # Electricity_Bill_Managemet_System
+The Electricity Bill Management System represents a robust solution tailored for efficient customer management and billing processes. With its intuitive Python-based graphical interface and MySQL database backend, the system facilitates seamless operations from customer registration to bill generation and status updates. The structured database schema ensures data integrity and scalability, accommodating future growth and operational demands effectively.
