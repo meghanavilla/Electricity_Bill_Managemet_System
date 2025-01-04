@@ -1,131 +1,194 @@
 import mysql.connector
-import tkinter as tk
-from tkinter import messagebox
+from tkinter import *
+from tkinter import messagebox, ttk
 
-# Function to connect to the database
-def connect_to_database():
-    try:
-        db = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="Meghana@2005",  # Replace with your MySQL password
-            database="ElectricityBillManagement"  # Corrected database name
+
+# Connect to MySQL Database
+def connect_db():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="Meghana@2005",
+        database="electricity_billing"
+    )
+
+
+# Add Customer Function
+def add_customer():
+    name = entry_name.get()
+    address = entry_address.get()
+    phone = entry_phone.get()
+    
+    if name and address and phone:
+        db = connect_db()
+        cursor = db.cursor()
+        cursor.execute(
+            "INSERT INTO customers (name, address, phone) VALUES (%s, %s, %s)",
+            (name, address, phone)
         )
-        return db
-    except mysql.connector.Error as err:
-        print(f"Error: {err}")
-        messagebox.showerror("Database Error", f"Error connecting to database: {err}")
-        return None
-
-# Database connection
-db = connect_to_database()
-if db:
-    cursor = db.cursor()
-else:
-    exit()
-
-# Function to authenticate user
-def login():
-    username = entry_username.get()
-    password = entry_password.get()
-
-    try:
-        query = "SELECT * FROM Users WHERE username=%s AND password=%s"
-        cursor.execute(query, (username, password))
-        result = cursor.fetchone()
-    except mysql.connector.Error as err:
-        messagebox.showerror("Database Error", f"Error querying database: {err}")
-        return
-
-    if result:
-        messagebox.showinfo("Login", "Login Successful")
-        user_id.set(result[0])
-        root.destroy()
-        open_main_app()
+        db.commit()
+        db.close()
+        messagebox.showinfo("Success", "Customer added successfully!")
     else:
-        messagebox.showerror("Login", "Invalid username or password")
+        messagebox.showwarning("Input Error", "Please fill all fields")
 
-# Function to open the main application after login
-def open_main_app():
-    main_app = tk.Tk()
-    main_app.title("Electricity Bill Management System")
 
-    tk.Label(main_app, text="Welcome to the Electricity Bill Management System").pack()
+# Add Bill Function
+def add_bill():
+    customer_id = entry_customer_id.get()
+    billing_date = entry_billing_date.get()
+    due_date = entry_due_date.get()
+    amount = entry_amount.get()
+    status = entry_status.get()
+    
+    if customer_id and billing_date and due_date and amount and status:
+        db = connect_db()
+        cursor = db.cursor()
+        cursor.execute(
+            "INSERT INTO bills (customer_id, billing_date, due_date, amount, status) VALUES (%s, %s, %s, %s, %s)",
+            (customer_id, billing_date, due_date, amount, status)
+        )
+        db.commit()
+        db.close()
+        messagebox.showinfo("Success", "Bill added successfully!")
+    else:
+        messagebox.showwarning("Input Error", "Please fill all fields")
 
-    def view_bills():
-        user_id_val = user_id.get()
-        try:
-            query = """
-            SELECT amount, due_date, paid 
-            FROM Bills
-            WHERE user_id = %s
-            """
-            cursor.execute(query, (user_id_val,))
-            bills = cursor.fetchall()
-        except mysql.connector.Error as err:
-            messagebox.showerror("Database Error", f"Error querying database: {err}")
-            return
 
-        if not bills:
-            messagebox.showinfo("No Bills", "No bills found for this user.")
-        else:
-            for bill in bills:
-                tk.Label(main_app, text=f"Amount: {bill[0]}, Due Date: {bill[1]}, Paid: {bill[2]}").pack()
+# View Customers Function
+def view_customers():
+    db = connect_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM customers")
+    customers = cursor.fetchall()
+    db.close()
+    customer_text.delete(1.0, END)
+    for customer in customers:
+        customer_info = f"ID: {customer[0]}, Name: {customer[1]}, Address: {customer[2]}, Phone: {customer[3]}\n"
+        customer_text.insert(END, customer_info)
 
-    def pay_bill():
-        user_id_val = user_id.get()
-        try:
-            query = "SELECT id, amount, due_date FROM Bills WHERE user_id = %s AND paid = FALSE"
-            cursor.execute(query, (user_id_val,))
-            unpaid_bills = cursor.fetchall()
-        except mysql.connector.Error as err:
-            messagebox.showerror("Database Error", f"Error querying database: {err}")
-            return
 
-        if not unpaid_bills:
-            messagebox.showinfo("No Unpaid Bills", "No unpaid bills found.")
-        else:
-            for bill in unpaid_bills:
-                bill_info = f"ID: {bill[0]}, Amount: {bill[1]}, Due Date: {bill[2]}"
-                bill_label = tk.Label(main_app, text=bill_info)
-                bill_label.pack()
-                tk.Button(main_app, text="Pay Now", command=lambda b_id=bill[0]: process_payment(b_id, bill_label)).pack()
+# View Bills Function
+def view_bills():
+    db = connect_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM bills")
+    bills = cursor.fetchall()
+    db.close()
+    bill_text.delete(1.0, END)
+    for bill in bills:
+        bill_info = f"ID: {bill[0]}, Customer ID: {bill[1]}, Billing Date: {bill[2]}, Due Date: {bill[3]}, Amount: {bill[4]}, Status: {bill[5]}\n"
+        bill_text.insert(END, bill_info)
 
-    def process_payment(bill_id, label):
-        try:
-            update_query = "UPDATE Bills SET paid = TRUE WHERE id = %s"
-            cursor.execute(update_query, (bill_id,))
-            db.commit()
-        except mysql.connector.Error as err:
-            messagebox.showerror("Database Error", f"Error updating database: {err}")
-            return
 
-        label.config(text=f"Bill ID {bill_id} - Paid")
-        messagebox.showinfo("Payment", f"Bill ID {bill_id} has been paid.")
+# Update Bill Status Function
+def update_bill_status():
+    bill_id = entry_bill_id.get()
+    new_status = entry_new_status.get()
+    
+    if bill_id and new_status:
+        db = connect_db()
+        cursor = db.cursor()
+        cursor.execute(
+            "UPDATE bills SET status = %s WHERE bill_id = %s", 
+            (new_status, bill_id)
+        )
+        db.commit()
+        db.close()
+        messagebox.showinfo("Success", "Bill status updated successfully!")
+    else:
+        messagebox.showwarning("Input Error", "Please fill all fields")
 
-    tk.Button(main_app, text="View Bills", command=view_bills).pack()
-    tk.Button(main_app, text="Pay Bill", command=pay_bill).pack()
 
-    main_app.mainloop()
+# Main Window
+root = Tk()
+root.title("Electricity Bill Management")
+root.geometry("800x600")
 
-# GUI setup
-root = tk.Tk()
-root.title("Electricity Bill Management System - Login")
+# Colors and Styles
+bg_color = "#F9FAFC"
+frame_color = "#FFFFFF"
+button_color = "#4CAF50"
+button_fg_color = "#FFFFFF"
+text_color = "#333333"
 
-user_id = tk.IntVar()
+# Fonts
+header_font = ("Arial", 24, "bold")
+label_font = ("Arial", 12)
+button_font = ("Arial", 12, "bold")
 
-tk.Label(root, text="Username").grid(row=0, column=0)
-entry_username = tk.Entry(root)
-entry_username.grid(row=0, column=1)
+# Header
+header_frame = Frame(root, bg=bg_color)
+header_frame.pack(fill=X)
+Label(header_frame, text="Electricity Bill Management", font=header_font, bg=bg_color, fg=text_color, padx=20, pady=10).pack()
 
-tk.Label(root, text="Password").grid(row=1, column=0)
-entry_password = tk.Entry(root, show="*")
-entry_password.grid(row=1, column=1)
+# Notebook (Tabbed Interface)
+notebook = ttk.Notebook(root)
+notebook.pack(pady=10, expand=True, fill=BOTH)
 
-tk.Button(root, text="Login", command=login).grid(row=2, column=0, columnspan=2)
+# Customers Tab
+customer_frame = Frame(notebook, bg=bg_color)
+customer_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+Label(customer_frame, text="Customer Management", font=("Arial", 18, "bold"), bg=bg_color, fg=text_color).pack(pady=10)
+
+Label(customer_frame, text="Name", bg=bg_color, fg=text_color, font=label_font).pack()
+entry_name = Entry(customer_frame, font=label_font)
+entry_name.pack()
+
+Label(customer_frame, text="Address", bg=bg_color, fg=text_color, font=label_font).pack()
+entry_address = Entry(customer_frame, font=label_font)
+entry_address.pack()
+
+Label(customer_frame, text="Phone", bg=bg_color, fg=text_color, font=label_font).pack()
+entry_phone = Entry(customer_frame, font=label_font)
+entry_phone.pack()
+
+btn_add_customer = Button(customer_frame, text="Add Customer", bg=button_color, fg=button_fg_color, font=button_font, command=add_customer)
+btn_add_customer.pack(pady=10)
+
+btn_view_customers = Button(customer_frame, text="View Customers", bg=button_color, fg=button_fg_color, font=button_font, command=view_customers)
+btn_view_customers.pack(pady=10)
+
+customer_text = Text(customer_frame, height=10, wrap=WORD)
+customer_text.pack(pady=10)
+
+# Bills Tab
+bill_frame = Frame(notebook, bg=bg_color)
+bill_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+Label(bill_frame, text="Billing Management", font=("Arial", 18, "bold"), bg=bg_color, fg=text_color).pack(pady=10)
+
+Label(bill_frame, text="Customer ID", bg=bg_color, fg=text_color, font=label_font).pack()
+entry_customer_id = Entry(bill_frame, font=label_font)
+entry_customer_id.pack()
+
+btn_view_bills = Button(bill_frame, text="View Bills", bg=button_color, fg=button_fg_color, font=button_font, command=view_bills)
+btn_view_bills.pack(pady=10)
+
+bill_text = Text(bill_frame, height=10, wrap=WORD)
+bill_text.pack(pady=10)
+
+# Status Tab
+status_frame = Frame(notebook, bg=bg_color)
+status_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+Label(status_frame, text="Update Bill Status", font=("Arial", 18, "bold"), bg=bg_color, fg=text_color).pack(pady=10)
+
+Label(status_frame, text="Bill ID", bg=bg_color, fg=text_color, font=label_font).pack()
+entry_bill_id = Entry(status_frame, font=label_font)
+entry_bill_id.pack()
+
+Label(status_frame, text="New Status (PAID/UNPAID)", bg=bg_color, fg=text_color, font=label_font).pack()
+entry_new_status = Entry(status_frame, font=label_font)
+entry_new_status.pack()
+
+btn_update_status = Button(status_frame, text="Update Status", bg=button_color, fg=button_fg_color, font=button_font, command=update_bill_status)
+btn_update_status.pack(pady=10)
+
+# Add Tabs to Notebook
+notebook.add(customer_frame, text="Customers")
+notebook.add(bill_frame, text="Bills")
+notebook.add(status_frame, text="Bill Status")
 
 root.mainloop()
-
-# Close the cursor and database connection
-cursor.close()
-db.close()
